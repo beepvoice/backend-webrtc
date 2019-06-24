@@ -4,9 +4,11 @@ import (
   "context"
   "encoding/json"
   "io"
+  "io/ioutil"
   "log"
   "net/http"
   "os"
+  "strings"
 
   "github.com/joho/godotenv"
   "github.com/julienschmidt/httprouter"
@@ -39,6 +41,23 @@ func main() {
   mediaEngine = webrtc.MediaEngine{}
   mediaEngine.RegisterCodec(webrtc.NewRTPOpusCodec(webrtc.DefaultPayloadTypeOpus, 48000))
   webrtcApi = webrtc.NewAPI(webrtc.WithMediaEngine(mediaEngine))
+
+  // Read ICE servers
+  fileBytes, err := ioutil.ReadFile("iceservers.txt")
+  if err != nil {
+    log.Fatal("error opening ice servers file")
+  }
+  fileString := string(fileBytes)
+  servers := strings.Split(fileString, `\n`)
+
+  peerConnectionConfig = webrtc.Configuration{
+    ICEServers: []webrtc.ICEServer{
+      {
+        URLs: servers,
+      },
+    },
+    SDPSemantics: webrtc.SDPSemanticsUnifiedPlanWithFallback,
+  }
 
   userTracks = make(map[string] map[string] *webrtc.Track)
   conversationUsers = make(map[string] []string)
