@@ -9,17 +9,24 @@ import (
   "net/http"
   "os"
   "strings"
+  "time"
+
+  . "webrtc/backend-protobuf/go"
 
   "github.com/joho/godotenv"
   "github.com/julienschmidt/httprouter"
   "github.com/pion/webrtc/v2"
   "github.com/gorilla/websocket"
+  "github.com/golang/protobuf/proto"
+  "github.com/nats-io/go-nats"
 )
 
 // Peer config
 var peerConnectionConfig webrtc.Configuration
 
 var listen string
+var natsHost string
+
 var upgrader websocket.Upgrader
 var mediaEngine webrtc.MediaEngine
 var webrtcApi *webrtc.API
@@ -28,6 +35,8 @@ var userTracks map[string] map[string] *webrtc.Track // userid + clientid
 var conversationUsers map[string] []string
 var userConversation map[string] string
 
+var natsConn *nats.Conn
+
 func main() {
   // Load .env
   err := godotenv.Load()
@@ -35,6 +44,7 @@ func main() {
     log.Fatal("Error loading .env file")
   }
   listen = os.Getenv("LISTEN")
+  natsHost = os.Getenv("NATS")
 
   upgrader = websocket.Upgrader{}
 
@@ -62,6 +72,14 @@ func main() {
   userTracks = make(map[string] map[string] *webrtc.Track)
   conversationUsers = make(map[string] []string)
   userConversation = make(map[string] string)
+
+  // NATs client
+  natsConn, err := nats.Connect(natsHost)
+  if err != nil {
+    log.Println(err)
+    return
+  }
+  defer natsConn.Close()
 
   // Routes
 	router := httprouter.New()
@@ -156,6 +174,31 @@ func NewConnection(w http.ResponseWriter, r *http.Request, p httprouter.Params) 
               }
             }
           }
+        }
+
+        start := time.Now().Unix()
+        bite := Bite {
+          Start: uint64(start),
+          Key: conversationId,
+          Data: rtpBuf[:i],
+        }
+        biteOut, err := proto.Marshal(&bite)
+        if err != nil {
+          log.Printf("%s", err)
+        } else {
+          natsConn.Publish("bite", biteOut)
+        }
+
+        store := Store {
+          Type: "bite",
+          Bite: &bite,
+        }
+
+        storeOut, err := proto.Marshal(&store)
+        if err != nil {
+          log.Printf("%s", err)
+        } else {
+          natsConn.Publish("store", storeOut)
         }
       }
     }
