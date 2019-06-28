@@ -4,6 +4,7 @@ RUN apk add --no-cache git=2.20.1-r0
 
 WORKDIR /src
 COPY go.mod go.sum .env *.go iceservers.txt ./
+COPY backend-protobuf/go ./backend-protobuf/go
 RUN go get -d -v ./...
 RUN CGO_ENABLED=0 go build -ldflags "-s -w"
 
