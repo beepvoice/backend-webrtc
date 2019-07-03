@@ -1,6 +1,6 @@
 # backend-webrtc
 
-Beep backend handling WebRTC Selective Forwarding Units (SFUs). 
+Beep backend handling WebRTC Selective Forwarding Units (SFUs). Pushes bites (chunks of audio) to [NATS](https://nats.io). Checks `backend-permissions` for user's permission to join the conversation.
 
 **The security of this service is handled by backend-auth called by traefik.**
 
@@ -11,6 +11,8 @@ Supply environment variables by either exporting them or editing `.env`.
 | ENV | Description | Default |
 | --- | ----------- | ------- |
 | LISTEN | Host and port to listen on | :80 |
+| NATS | Host and port of NATs | nats://localhost:4222 |
+| PERMISSIONS_HOST | URL of `backend-permissions` | http://permissions |
 
 ## API
 
@@ -114,3 +116,4 @@ Empty body
 | Code | Description |
 | ---- | ----------- |
 | 400 | Error parsing `X-User-Claims` header |
+| 401 | `backend-permissions` denied permission to join conversation |

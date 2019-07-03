@@ -26,6 +26,7 @@ var peerConnectionConfig webrtc.Configuration
 
 var listen string
 var natsHost string
+var permissionsHost string
 
 var upgrader websocket.Upgrader
 var mediaEngine webrtc.MediaEngine
@@ -45,6 +46,7 @@ func main() {
   }
   listen = os.Getenv("LISTEN")
   natsHost = os.Getenv("NATS")
+  permissionsHost = os.Getenv("PERMISSIONS_HOST")
 
   upgrader = websocket.Upgrader{}
 
@@ -251,8 +253,16 @@ func NewConnection(w http.ResponseWriter, r *http.Request, p httprouter.Params) 
 func JoinConversation(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
   // Get user id
   user := r.Context().Value("user").(RawClient)
-
+  // Get conversation id
   conversationId := p.ByName("conversationid")
+
+  // Check permissions from backend-permissions
+  response, err := http.Get(permissionsHost + "/user/" + user.UserId + "/conversation/" + conversationId)
+  if err != nil {
+    http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+    return
+  }
+  response.Body.Close()
 
   // Remove user from existing conversation
   if oldConversation, ok := userConversation[user.UserId]; ok {
