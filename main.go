@@ -112,6 +112,11 @@ func GetAuth(next httprouter.Handle) httprouter.Handle {
       return
     }
 
+    if client.UserId == "" || client.ClientId == "" {
+      http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+      return
+    }
+
     context := context.WithValue(r.Context(), "user", client)
     next(w, r.WithContext(context), p)
   }
@@ -255,6 +260,10 @@ func JoinConversation(w http.ResponseWriter, r *http.Request, p httprouter.Param
   user := r.Context().Value("user").(RawClient)
   // Get conversation id
   conversationId := p.ByName("conversationid")
+  if conversationId == "" {
+    http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+    return
+  }
 
   // Check permissions from backend-permissions
   response, err := http.Get(permissionsHost + "/user/" + user.UserId + "/conversation/" + conversationId)
