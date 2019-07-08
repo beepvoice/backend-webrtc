@@ -132,7 +132,6 @@ func NewConnection(w http.ResponseWriter, r *http.Request, p httprouter.Params) 
     http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
     return
   }
-	defer c.Close()
 
   // Read SDP from websocket
 	mt, msg, err := c.ReadMessage()
@@ -140,6 +139,7 @@ func NewConnection(w http.ResponseWriter, r *http.Request, p httprouter.Params) 
     http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
     return
   }
+  offerSDP := strings.Join(strings.Split(string(msg), "::")[1:], "::")
 
   // Establish connection (it's a publisher)
   clientReceiver, err := webrtcApi.NewPeerConnection(peerConnectionConfig)
@@ -148,6 +148,24 @@ func NewConnection(w http.ResponseWriter, r *http.Request, p httprouter.Params) 
     http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
     return
   }
+
+  // Spawn thread to wait for ice candidates
+  go func() {
+    for {
+     	_, msg, err := c.ReadMessage()
+      iceCandidate := strings.Join(strings.Split(string(msg), "::")[1:], "::")
+      if err == nil {
+        clientReceiver.AddICECandidate(webrtc.ICECandidateInit {
+          Candidate: iceCandidate,
+        })
+      }
+    }
+  }()
+
+  // Handle ICE candidates
+  clientReceiver.OnICECandidate(func(candidate *webrtc.ICECandidate) {
+    _ = c.WriteMessage(websocket.TextMessage, []byte("ice::" + candidate.String()))
+  })
 
   _, err = clientReceiver.AddTransceiver(webrtc.RTPCodecTypeAudio)
   if err != nil {
@@ -224,7 +242,7 @@ func NewConnection(w http.ResponseWriter, r *http.Request, p httprouter.Params) 
   // Do signalling things
   err = clientReceiver.SetRemoteDescription(
     webrtc.SessionDescription {
-      SDP:  string(msg),
+      SDP:  offerSDP,
       Type: webrtc.SDPTypeOffer,
   })
   if err != nil {
@@ -247,7 +265,7 @@ func NewConnection(w http.ResponseWriter, r *http.Request, p httprouter.Params) 
     return
   }
 
-  err = c.WriteMessage(mt, []byte(answer.SDP))
+  err = c.WriteMessage(mt, []byte("answer::" + answer.SDP))
   if err != nil {
     log.Printf("%s", err)
     http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
