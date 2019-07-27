@@ -10,7 +10,6 @@ RUN CGO_ENABLED=0 go build -ldflags "-s -w"
 
 FROM scratch
 
-COPY --from=build /src/iceservers.txt /iceservers.txt
 COPY --from=build /src/webrtc /webrtc
 COPY --from=build /src/.env /.env
 
