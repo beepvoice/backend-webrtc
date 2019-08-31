@@ -230,6 +230,10 @@ func NewConnection(w http.ResponseWriter, r *http.Request, p httprouter.Params) 
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+
+  if _, ok := userTracks[user.UserId]; !ok {
+    userTracks[user.UserId] = make(map[string]*webrtc.Track)
+  }
 	userTracks[user.UserId][user.ClientId] = track
 
 	// Do signalling things
